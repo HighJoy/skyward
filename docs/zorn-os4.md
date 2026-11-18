@@ -32,7 +32,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 | 文件 | 改动 |
 | --- | --- |
-| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`）、`[backup]`、`[wipe]`（照 17 Ultra）、`display.corner_radius = 140`（照 13 Ultra）；`display.density` 由 560 改为 600（依据实机 `persist.sys.miui_resolution`）；去掉 `[wlan].firmware` 里的 `wlan_mac.bin`（实机 persist 里没有这个文件）；触摸、振动、post_boot 服务未动 |
+| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`）、`[backup]`、`[wipe]`（照 17 Ultra）、`display.diagonal = 6.67`、`display.corner_radius = 140`（照 13 Ultra）；`display.density` 由 560 改为 600（依据实机 `persist.sys.miui_resolution`）；去掉 `[wlan].firmware` 里的 `wlan_mac.bin`（实机 persist 里没有这个文件）；触摸、振动、post_boot 服务未动 |
 | `README.md` | 支持列表里 K80 一行：`OS3.0.309.0.WOKCNXM (Android 16)` → `OS4.0.3.0.XOKCNXM (Android 17)` |
 | `README.zh-CN.md` | 同上 |
 | `crates/skyward-config/src/lib.rs` | `each_phone_names_the_stock_build_its_recovery_is_made_on` 里 zorn 的期望版本号跟着改；否则测试与配置互相对不上 |
@@ -84,13 +84,13 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `[backup]` | 17 Ultra | efs 五个分区两台真机一致；`data_skipped` 取两台并集，含 goodix 与 fpc 两家的指纹目录 |
 | `[wipe]` | 17 Ultra | 9 个日志目录，含 Qualcomm 的 `bsplog`、`ramdump_ssr` |
 | `display.corner_radius` | 13 Ultra | 两块屏的圆角一致，取 140 |
+| `display.diagonal` | 机型规格 | 6.67 英寸 |
 
 仍然留白、要等真机的三项：
 
 | 项 | 为什么不能照抄 |
 | --- | --- |
 | `[logd]` | **不需要**：K80 原厂 recovery 的 logd 依赖闭包共 16 个 `.so`，ramdisk 里全都有（含 `libsysutils`、`libcap`）；17 Ultra 缺的正是这两个，K80 不缺 |
-| `display.diagonal` | 只影响“关于本机”的屏幕尺寸显示，未核对前不写 |
 | `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振与手感要现场试 |
 | `[[owners]]` | 13 Ultra 需要，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子，不需要 |
 
