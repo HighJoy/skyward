@@ -32,7 +32,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 | 文件 | 改动 |
 | --- | --- |
-| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；其余段落（显示、触摸、WLAN、振动、post_boot 服务）未动 |
+| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；并补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`，见下）；显示、触摸、WLAN、振动、post_boot 服务未动 |
 | `README.md` | 支持列表里 K80 一行：`OS3.0.309.0.WOKCNXM (Android 16)` → `OS4.0.3.0.XOKCNXM (Android 17)` |
 | `README.zh-CN.md` | 同上 |
 | `crates/skyward-config/src/lib.rs` | `each_phone_names_the_stock_build_its_recovery_is_made_on` 里 zorn 的期望版本号跟着改；否则测试与配置互相对不上 |
@@ -71,6 +71,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | WLAN | `/vendor/etc/wifi/kiwi_v2/WCNSS_qcom_cfg.ini`、`/vendor/bin/hw/wpa_supplicant` 都在；`qca_cld3_kiwi_v2.ko` 在，`qca_cld3_kiwi` 仍被 blocklist |
 | 触摸驱动 | `focaltech_touch.ko` 仍在 `vendor_dlkm` |
 | 显示 | `vendor.display.default_resolution=1440,3200`，`persist.sys.miui_resolution=1080,2400,420`（密度 420 → 配置里 560 仍成立） |
+| 挂载 | 原厂 `/vendor/etc/fstab.qcom`：`modem → /vendor/firmware_mnt`（`wait,slotselect`）、`persist → /mnt/vendor/persist`（`wait,check`）。recovery 不执行 init 的这些挂载，所以由 Skyward 自己挂：modem 给 WLAN 驱动取固件，persist 给 qseecomd 的监听器放安全世界的文件（含解密要用的不可回滚密钥） |
 
 ## 验证
 
