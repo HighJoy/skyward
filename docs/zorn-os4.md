@@ -111,7 +111,9 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `persist.vendor.sys.fp.vendor` | `goodix_us` | 指纹是 goodix；`data_skipped` 里 goodix 必须有，fpc 一并留着无害 |
 | `/data/vendor` 与 `/data/vendor/misc` | `tzstorage`、`qtee`、`mitee`、`goodix`、`fpc`、`fingerprint`、`fpdata`、`misc/mi_fp` 都在 | `data_skipped` 八项全部命中 |
 | `/sys/class/touch/touch_dev/enable_touch_raw` | 存在，`system:system` 0664 | `[touch].writes` 的节点名正确 |
-| 息屏 | 面板进低功耗（LP2）后触摸控制器跟着掉电，再叫不醒 | `[touch].rests = false`：面板保持点亮、只关背光，黑帧盖住画面，点一下即亮 |
+| 息屏 | 面板进低功耗（LP2）后 FocalTech 触摸控制器跟着掉电，不再随面板醒来 | `[display].rests = false`：面板保持点亮、只关背光，黑帧盖住画面，点一下即亮 |
+| `system_dlkm` 的模块 | 里面有两套：`flatten` 是 AOSP 内核的，`/system_dlkm/lib/modules/<uname -r>` 才是本机的 | `source_dir` 改为按 `/proc/sys/kernel/osrelease` 取；`flatten` 的 `rfkill.ko` 导出保护符号，内核拒收，连带 `cfg80211`、`qca_cld3_kiwi_v2` 全部加载失败 |
+| 密钥服务起不来 | weaver/keymint/gatekeeper 按系统的新 libc++ 编译，recovery 自带的旧版缺 `__libcpp_verbose_abort` | 启动 `vendor`、`odm` 的 `bin/hw` 程序时把 `/mnt/system/system/lib64/libc++.so` 放进 `LD_PRELOAD`；把系统库目录塞进 `LD_LIBRARY_PATH` 反而会缺十几个人家没有的库 |
 | `lra_frequency_hz` | `1749`（十分之一赫兹，即 174.9 Hz） | `[haptics].resonance` 路径正确 |
 | `/vendor/lib/modules` | `focaltech_touch.ko`、`qca_cld3_kiwi_v2.ko` | `[modules].load`、`[wlan].modules` 正确 |
 | `/mnt/vendor/persist/wlan` | **空目录**；`persist/kiwi_v2` 不存在 | `[wlan].firmware` 去掉 `wlan_mac.bin` 一项：文件不在，`place()` 读它会报错并中断 WLAN 启动；地址由芯片自己给 |
