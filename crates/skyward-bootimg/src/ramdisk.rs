@@ -2,12 +2,15 @@ use anyhow::{bail, Context, Result};
 use cpio::{NewcBuilder, NewcReader};
 #[cfg(unix)]
 use std::ffi::{CString, OsStr};
+// What only the Unix host side of unpacking reads.
+#[cfg_attr(not(unix), allow(unused_imports))]
 use std::fs;
 use std::io::{Cursor, Read, Write};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+#[cfg_attr(not(unix), allow(unused_imports))]
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -30,9 +33,14 @@ const S_IFMT: u32 = 0o170000;
 const S_IFDIR: u32 = 0o040000;
 const S_IFREG: u32 = 0o100000;
 const S_IFLNK: u32 = 0o120000;
+// The nodes only a Unix host makes, so only there are they read.
+#[cfg_attr(not(unix), allow(dead_code))]
 const S_IFCHR: u32 = 0o020000;
+#[cfg_attr(not(unix), allow(dead_code))]
 const S_IFBLK: u32 = 0o060000;
+#[cfg_attr(not(unix), allow(dead_code))]
 const S_IFIFO: u32 = 0o010000;
+#[cfg_attr(not(unix), allow(dead_code))]
 const S_IFSOCK: u32 = 0o140000;
 
 /// The permissions a stock ramdisk gives its links, such as the commands
@@ -380,6 +388,7 @@ mod tests {
     }
 
     /// An entry owned by whoever runs the tests, who can give it that owner.
+    #[cfg(unix)]
     fn mine(name: &str, mode: u32, data: &[u8]) -> Entry {
         let (uid, gid) = unsafe { (libc::getuid(), libc::getgid()) };
         Entry { name: name.into(), mode, uid, gid, mtime: 1_500_000_000, nlink: 1, dev: (0, 0), rdev: (0, 0), data: data.to_vec() }
