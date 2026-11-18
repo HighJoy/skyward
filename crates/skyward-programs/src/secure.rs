@@ -283,7 +283,11 @@ fn weaver(phone: &Phone) -> Result<Vec<Step>> {
 /// `name` itself or the one the program's own description tells of beside
 /// it.
 fn element(phone: &Phone, name: &str) -> Result<Started> {
-    let program = behind(phone, "a secure element's service", name, |file| file.contains("secure_element"))?;
+    // The program that registers a secure element is named after the element
+    // on most phones, but not on all: this one's built-in element is served
+    // by the NFC controller's own service, whose file is named after the
+    // controller. The script's own words come first either way.
+    let program = behind(phone, "a secure element's service", name, |file| file.contains("secure_element") || file.contains("nqnfc"))?;
     let told = described(phone, Kind::Aidl, name).expect("the service was found among those described");
     let of_an_element = |d: &Described| (d.package.as_str(), d.interface.as_str()) == ELEMENT;
     let own = match of_an_element(&told.described) {
