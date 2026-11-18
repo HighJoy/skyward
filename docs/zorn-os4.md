@@ -86,13 +86,18 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `display.corner_radius` | 13 Ultra | 两块屏的圆角一致，取 140 |
 | `display.diagonal` | 机型规格 | 6.67 英寸 |
 
-仍然留白、要等真机的三项：
+**不填的两项，理由已定：**
+
+| 项 | 为什么 |
+| --- | --- |
+| `[logd]` | 不需要：K80 原厂 recovery 的 logd 依赖闭包共 16 个 `.so`，ramdisk 里全都有（含 `libsysutils`、`libcap`）；17 Ultra 缺的正是这两个，K80 不缺 |
+| `[[owners]]` | 不需要：13 Ultra 要它，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子 |
+
+**只剩一项要在真机上试：**
 
 | 项 | 为什么不能照抄 |
 | --- | --- |
-| `[logd]` | **不需要**：K80 原厂 recovery 的 logd 依赖闭包共 16 个 `.so`，ramdisk 里全都有（含 `libsysutils`、`libcap`）；17 Ultra 缺的正是这两个，K80 不缺 |
-| `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振与手感要现场试 |
-| `[[owners]]` | 13 Ultra 需要，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子，不需要 |
+| `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振（`lra_frequency_hz = 1749`，即 174.9 Hz）与手感要现场试 |
 
 ## 实机信息核对（OS4.0.3.0，已 root 的运行系统）
 
