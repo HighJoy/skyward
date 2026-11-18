@@ -197,9 +197,10 @@ const RECOVERY: &str = "recovery";
 /// URL, of which only the parts that are read are downloaded.
 pub(crate) fn open_package(package: &str) -> Result<unpayload::Payload> {
     let path = Path::new(package);
-    match path.is_file() {
-        true => unpayload::Payload::open(path),
-        false => unpayload::Payload::open_url(package),
+    if path.is_file() {
+        unpayload::Payload::open(path)
+    } else {
+        unpayload::Payload::open_url(package)
     }
 }
 
