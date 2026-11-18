@@ -85,8 +85,12 @@ const SYSTEM_LIBRARIES: [&str; 3] = ["/mnt/system/system/lib64/bootstrap", "/mnt
 /// The installed system's folders, where a program on the vendor or the
 /// odm partition finds the few libraries it asks for that none of its own
 /// folders has: the ones Android lets such a program share with the
-/// system, which a recovery may not carry.
-const SHARED_LIBRARIES: [&str; 2] = ["/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"];
+/// system, which a recovery may not carry. bootstrap comes first: what it
+/// holds are files, where the folder above keeps links into /apex, which a
+/// recovery does not mount — libdl_android.so is a link there and file
+/// here, and a program asking for it finds nothing, which is what kept the
+/// secure element's service from starting and the weaver behind it.
+const SHARED_LIBRARIES: [&str; 2] = ["/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"];
 
 /// The folders the program a script names `path` finds its libraries in,
 /// in the order they are looked in: those of its partition, then `bundle`,
