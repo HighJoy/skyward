@@ -1,9 +1,12 @@
 use anyhow::{bail, Context, Result};
 use cpio::{NewcBuilder, NewcReader};
+#[cfg(unix)]
 use std::ffi::{CString, OsStr};
 use std::fs;
 use std::io::{Cursor, Read, Write};
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -121,7 +124,9 @@ impl Ramdisk {
     /// entry gets the archive's owner, mode and time, a folder's time once
     /// everything in it is in. Where a file is already there, the entry is
     /// made anew, where the kernel writes over it, so that a program
-    /// running from that file is left alone.
+    /// running from that file is left alone. Only a Unix host hands a file
+    /// its owner, mode and time, so only there is this here.
+    #[cfg(unix)]
     pub fn unpack(&self, root: &Path) -> Result<()> {
         for e in &self.entries {
             let path = root.join(&e.name);
@@ -192,11 +197,13 @@ fn root_entry(name: &str, mode: u32, data: Vec<u8>) -> Entry {
     Entry { name: name.to_string(), mode, uid: 0, gid: 0, mtime: 0, nlink, dev: (0, 0), rdev: (0, 0), data }
 }
 
+#[cfg(unix)]
 fn c_path(path: &Path) -> Result<CString> {
     CString::new(path.as_os_str().as_bytes()).context("a NUL in the path")
 }
 
 /// One entry of [`Ramdisk::unpack`] at `path`.
+#[cfg(unix)]
 fn unpack(e: &Entry, path: &Path) -> Result<()> {
     let kind = e.mode & S_IFMT;
     let mode = e.mode & 0o7777;
@@ -243,6 +250,7 @@ fn unpack(e: &Entry, path: &Path) -> Result<()> {
 
 /// Give `path` itself, a link or not, `mtime` as the time it was last
 /// changed and read.
+#[cfg(unix)]
 fn set_time(path: &Path, mtime: u32) -> Result<()> {
     let at = libc::timespec { tv_sec: mtime as libc::time_t, tv_nsec: 0 };
     let times = [at, at];
@@ -377,6 +385,7 @@ mod tests {
         Entry { name: name.into(), mode, uid, gid, mtime: 1_500_000_000, nlink: 1, dev: (0, 0), rdev: (0, 0), data: data.to_vec() }
     }
 
+    #[cfg(unix)]
     #[test]
     fn unpacking_over_an_archive_unpacked_before_follows_the_kernel() {
         use std::os::unix::fs::{FileTypeExt, MetadataExt};
@@ -420,6 +429,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_folder_with_files_in_it_keeps_its_place() {
         let dir = tempfile::tempdir().unwrap();

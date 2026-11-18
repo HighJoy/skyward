@@ -191,6 +191,18 @@ fn main() -> Result<()> {
 /// The partition a recovery is made on, as a full update package names it.
 const RECOVERY: &str = "recovery";
 
+/// The stock build's full update package: the file the configuration names
+/// where it names one on this computer, which is how a package is built on
+/// without fetching it again, and what is at its address where it names a
+/// URL, of which only the parts that are read are downloaded.
+pub(crate) fn open_package(package: &str) -> Result<unpayload::Payload> {
+    let path = Path::new(package);
+    match path.is_file() {
+        true => unpayload::Payload::open(path),
+        false => unpayload::Payload::open_url(package),
+    }
+}
+
 /// Take the recovery partition out of the stock build's full update package
 /// on its server, reading only what that partition takes of it, and write it
 /// to `out` once its SHA-256 is the one the configuration names.
@@ -199,7 +211,7 @@ fn take_stock_recovery(stock: &skyward_config::Stock, out: &Path) -> Result<()> 
     std::fs::create_dir_all(parent).with_context(|| format!("make {}", parent.display()))?;
     // Taken out beside where it goes, so it is moved there whole.
     let work = tempfile::Builder::new().prefix(".stock").tempdir_in(parent).with_context(|| format!("make a folder in {}", parent.display()))?;
-    let payload = unpayload::Payload::open_url(&stock.package).with_context(|| format!("open {}", stock.package))?;
+    let payload = open_package(&stock.package).with_context(|| format!("open {}", stock.package))?;
     let options = unpayload::ExtractOptions { output_dir: work.path().to_path_buf(), partitions: vec![RECOVERY.into()], ..Default::default() };
     let report = |event: unpayload::Event<'_>| match event {
         unpayload::Event::Started { partitions } => {
