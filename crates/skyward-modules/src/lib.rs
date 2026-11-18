@@ -42,11 +42,27 @@ pub fn load(dirs: &[PathBuf], names: &[String]) -> Result<Vec<PathBuf>> {
     let mut loaded = Vec::new();
     for name in names {
         let file = format!("{name}.ko");
-        let dir = dirs
-            .iter()
-            .find(|d| d.join(&file).is_file())
-            .ok_or_else(|| anyhow!("{file} is in none of {dirs:?}"))?;
-        let graph = parse_dep(dir)?;
+        // A source keeps its modules flat, as vendor_dlkm does, or under the
+        // kernel's own tree, as system_dlkm does — rfkill is at
+        // kernel/net/rfkill/rfkill.ko there — so the file is looked for in
+        // the folder itself and then where that folder's modules.dep says
+        // it is.
+        let mut chosen: Option<(&PathBuf, ModuleGraph)> = None;
+        for dir in dirs {
+            if dir.join(&file).is_file() {
+                chosen = Some((dir, parse_dep(dir)?));
+                break;
+            }
+            if let Ok(graph) = parse_dep(dir)
+                && graph.deps.contains_key(&file)
+            {
+                chosen = Some((dir, graph));
+                break;
+            }
+        }
+        let Some((dir, graph)) = chosen else {
+            bail!("{file} is in none of {dirs:?}");
+        };
         for m in graph.load_order(std::slice::from_ref(&file)) {
             let path = graph
                 .resolve_path(&m)
