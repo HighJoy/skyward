@@ -68,7 +68,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | weaver | `/odm/bin/hw/android.hardware.weaver-service.nxp-qti` |
 | qseecomd | `/vendor/bin/qseecomd` |
 | 性能调度 | `kernel-post-boot` = `/vendor/bin/sh /vendor/bin/init.kernel.post_boot.sh`，`user root`、`groups root system wakelock graphics`，与配置一致 |
-| WLAN | `/vendor/etc/wifi/kiwi_v2/WCNSS_qcom_cfg.ini`、`/vendor/bin/hw/wpa_supplicant` 都在；`qca_cld3_kiwi_v2.ko` 在，`qca_cld3_kiwi` 仍被 blocklist |
+| WLAN | `/vendor/etc/wifi/kiwi_v2/WCNSS_qcom_cfg.ini`、`/vendor/bin/hw/wpa_supplicant` 都在；`qca_cld3_kiwi_v2.ko` 在，`qca_cld3_kiwi` 仍被 blocklist；`/vendor/firmware/wlan/qca_cld/kiwi_v2/wlan_mac.bin` 指向 `/mnt/vendor/persist/wlan/wlan_mac.bin`，配置里的 `wlan/wlan_mac.bin` 由此确认（不是 13 Ultra 的 `kiwi_v2/wlan_mac.bin`） |
 | 触摸驱动 | `focaltech_touch.ko` 仍在 `vendor_dlkm` |
 | 显示 | `vendor.display.default_resolution=1440,3200`，`persist.sys.miui_resolution=1080,2400,420`（密度 420 → 配置里 560 仍成立） |
 | 挂载 | 原厂 `/vendor/etc/fstab.qcom`：`modem → /vendor/firmware_mnt`（`wait,slotselect`）、`persist → /mnt/vendor/persist`（`wait,check`）。recovery 不执行 init 的这些挂载，所以由 Skyward 自己挂：modem 给 WLAN 驱动取固件，persist 给 qseecomd 的监听器放安全世界的文件（含解密要用的不可回滚密钥） |
@@ -89,7 +89,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 | 项 | 为什么不能照抄 |
 | --- | --- |
-| `[logd]` | 补的是 recovery 的 logd 缺的具体库（17 Ultra 缺 `libsysutils`、`libcap`），K80 缺哪些要看它自己的 logd |
+| `[logd]` | **不需要**：K80 原厂 recovery 的 logd 依赖闭包共 16 个 `.so`，ramdisk 里全都有（含 `libsysutils`、`libcap`）；17 Ultra 缺的正是这两个，K80 不缺 |
 | `display.diagonal` | 只影响“关于本机”的屏幕尺寸显示，未核对前不写 |
 | `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振与手感要现场试 |
 | `[[owners]]` | 13 Ultra 需要，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子，不需要 |
