@@ -28,8 +28,11 @@ rests = false
 [modules]
 sources = ["vendor_boot", "vendor_dlkm", "vendor", "system_dlkm"]
 # The touchscreen: FocalTech's, over SPI behind Xiaomi's touch layer, the
-# one touch driver the phone's own modules.load lists.
-load = ["focaltech_touch"]
+# one touch driver the phone's own modules.load lists. And the NFC
+# controller's: the weaver reaches the secure element through it, and the
+# element's service opens the node the driver makes, /dev/nq-nci, which
+# nothing makes until the driver is in.
+load = ["focaltech_touch", "nxp-nci"]
 
 # As on the 17 Ultra, no init script of the phone's starts touch_report:
 # the touch feature service turns the controller's raw frames into
