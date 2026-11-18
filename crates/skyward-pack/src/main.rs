@@ -198,9 +198,9 @@ const RECOVERY: &str = "recovery";
 pub(crate) fn open_package(package: &str) -> Result<unpayload::Payload> {
     let path = Path::new(package);
     if path.is_file() {
-        unpayload::Payload::open(path)
+        Ok(unpayload::Payload::open(path)?)
     } else {
-        unpayload::Payload::open_url(package)
+        Ok(unpayload::Payload::open_url(package)?)
     }
 }
 
