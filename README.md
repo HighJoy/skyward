@@ -123,6 +123,9 @@ not been verified.
 | 🚧 REDMI K100 Pro | `athens` | OS4.0.4.0.XPICNXM (Android 17) |
 | 🚧 REDMI K100 Pro Max | `songyuan` | OS4.0.4.0.XGNCNXM (Android 17) |
 
+The K80 is built on HyperOS 4.0, OS4.0.3.0.XOKCNXM; what that took, and
+what it was checked against, is in [docs/zorn-os4.md](docs/zorn-os4.md).
+
 ## Installing Skyward
 
 Skyward needs an unlocked bootloader. Download the zip for your phone from
