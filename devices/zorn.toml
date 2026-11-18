@@ -14,6 +14,7 @@ os_version_prop = "ro.mi.os.version.incremental"
 width = 1440
 height = 3200
 density = 600
+diagonal = 6.67
 # The radius the stock settings round a page's corners to as it slides in:
 # the 13 Ultra's, whose panel is cut to the same corners.
 corner_radius = 140
