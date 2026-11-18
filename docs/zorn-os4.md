@@ -32,7 +32,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 | 文件 | 改动 |
 | --- | --- |
-| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；并补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`，见下）；显示、触摸、WLAN、振动、post_boot 服务未动 |
+| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`）、`[backup]`、`[wipe]`（照 17 Ultra）、`display.corner_radius = 140`（照 13 Ultra）；显示尺寸、触摸、WLAN、振动、post_boot 服务未动 |
 | `README.md` | 支持列表里 K80 一行：`OS3.0.309.0.WOKCNXM (Android 16)` → `OS4.0.3.0.XOKCNXM (Android 17)` |
 | `README.zh-CN.md` | 同上 |
 | `crates/skyward-config/src/lib.rs` | `each_phone_names_the_stock_build_its_recovery_is_made_on` 里 zorn 的期望版本号跟着改；否则测试与配置互相对不上 |
@@ -72,6 +72,27 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | 触摸驱动 | `focaltech_touch.ko` 仍在 `vendor_dlkm` |
 | 显示 | `vendor.display.default_resolution=1440,3200`，`persist.sys.miui_resolution=1080,2400,420`（密度 420 → 配置里 560 仍成立） |
 | 挂载 | 原厂 `/vendor/etc/fstab.qcom`：`modem → /vendor/firmware_mnt`（`wait,slotselect`）、`persist → /mnt/vendor/persist`（`wait,check`）。recovery 不执行 init 的这些挂载，所以由 Skyward 自己挂：modem 给 WLAN 驱动取固件，persist 给 qseecomd 的监听器放安全世界的文件（含解密要用的不可回滚密钥） |
+
+## 和两台真机机型对齐的部分
+
+仓库里只有 17 Ultra（`nezha`，OS4.0.4.0）和 13 Ultra（`ishtar`）是作者在真机上验证过的，
+它们的配置是唯一可信的参照。K80 这次照它们补齐了：
+
+| 项 | 来源 | 说明 |
+| --- | --- | --- |
+| `[firmware]` / `[partitions]` | 17 Ultra | 原厂 fstab 把 modem、persist 都标 `wait`，recovery 不跑 init 的挂载 |
+| `[backup]` | 17 Ultra | efs 五个分区两台真机一致；`data_skipped` 取两台并集，含 goodix 与 fpc 两家的指纹目录 |
+| `[wipe]` | 17 Ultra | 9 个日志目录，含 Qualcomm 的 `bsplog`、`ramdump_ssr` |
+| `display.corner_radius` | 13 Ultra | 两块屏的圆角一致，取 140 |
+
+仍然留白、要等真机的三项：
+
+| 项 | 为什么不能照抄 |
+| --- | --- |
+| `[logd]` | 补的是 recovery 的 logd 缺的具体库（17 Ultra 缺 `libsysutils`、`libcap`），K80 缺哪些要看它自己的 logd |
+| `display.diagonal` | 只影响“关于本机”的屏幕尺寸显示，未核对前不写 |
+| `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振与手感要现场试 |
+| `[[owners]]` | 13 Ultra 需要，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子，不需要 |
 
 ## 验证
 

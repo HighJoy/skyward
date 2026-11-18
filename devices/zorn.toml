@@ -15,6 +15,9 @@ os_version_prop = "ro.mi.os.version.incremental"
 width = 1440
 height = 3200
 density = 560
+# The radius the stock settings round a page's corners to as it slides in:
+# the 13 Ultra's, whose panel is cut to the same corners.
+corner_radius = 140
 
 [modules]
 sources = ["vendor_boot", "vendor_dlkm", "vendor", "system_dlkm"]
@@ -102,3 +105,38 @@ recovery = "c0ca7a533fcacc09d693066179671e4968c8e2e4fc8a7a76f3b22cd2316902c9"
 [haptics]
 resonance = "/sys/class/qcom-haptics/lra_frequency_hz"
 strength = { lightest = 0.25, strongest = 0.75 }
+
+# The partitions a backup of the baseband and EFS takes: the baseband's
+# settings, with the IMEI, and the sensors' calibration, as on the 17 Ultra.
+# And what of the data partition a backup leaves out because the secure world
+# keeps it in step with itself: its own storage, its apps' data, that of
+# Xiaomi's own trusted environment, the secure element's state and the
+# fingerprint templates of either maker the phone may carry.
+[backup]
+efs = ["modemst1", "modemst2", "fsg", "fsc", "persist"]
+data_skipped = [
+    "vendor/tzstorage",
+    "vendor/qtee",
+    "vendor/mitee",
+    "vendor/goodix",
+    "vendor/fpc",
+    "vendor/fingerprint",
+    "vendor/fpdata",
+    "vendor/misc/mi_fp",
+]
+
+# Where the phone's own programs keep logs in the data partition: the
+# system's, the minidumps, what Xiaomi's log manager keeps of each part of
+# the phone, and what the modem, Wi-Fi and Bluetooth leave when they crash.
+[wipe]
+logs = [
+    "/data/miuilog",
+    "/data/vendor/diag",
+    "/data/vendor/bsplog",
+    "/data/vendor/log",
+    "/data/vendor/ramdump",
+    "/data/vendor/ramdump_ssr",
+    "/data/vendor/ssrdump",
+    "/data/vendor/tombstones",
+    "/data/vendor/wlan_logs",
+]
