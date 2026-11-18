@@ -111,6 +111,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `persist.vendor.sys.fp.vendor` | `goodix_us` | 指纹是 goodix；`data_skipped` 里 goodix 必须有，fpc 一并留着无害 |
 | `/data/vendor` 与 `/data/vendor/misc` | `tzstorage`、`qtee`、`mitee`、`goodix`、`fpc`、`fingerprint`、`fpdata`、`misc/mi_fp` 都在 | `data_skipped` 八项全部命中 |
 | `/sys/class/touch/touch_dev/enable_touch_raw` | 存在，`system:system` 0664 | `[touch].writes` 的节点名正确 |
+| 息屏 | 面板进低功耗（LP2）后触摸控制器跟着掉电，再叫不醒 | `[touch].rests = false`：面板保持点亮、只关背光，黑帧盖住画面，点一下即亮 |
 | `lra_frequency_hz` | `1749`（十分之一赫兹，即 174.9 Hz） | `[haptics].resonance` 路径正确 |
 | `/vendor/lib/modules` | `focaltech_touch.ko`、`qca_cld3_kiwi_v2.ko` | `[modules].load`、`[wlan].modules` 正确 |
 | `/mnt/vendor/persist/wlan` | **空目录**；`persist/kiwi_v2` 不存在 | `[wlan].firmware` 去掉 `wlan_mac.bin` 一项：文件不在，`place()` 读它会报错并中断 WLAN 启动；地址由芯片自己给 |

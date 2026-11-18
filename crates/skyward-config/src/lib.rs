@@ -288,6 +288,14 @@ pub struct Display {
     /// sliding over another rounds its leading corners to it.
     #[serde(default)]
     pub corner_radius: u32,
+    /// Whether the panel rests in its low-power mode as the screen goes
+    /// dark, and turns off five seconds later. A touch controller that
+    /// follows the panel into that rest, as Xiaomi's do, stops drawing
+    /// power with it; one that does not wake with the panel again leaves
+    /// the screen with nothing to wake it, so on those controllers the
+    /// panel is left on and only the backlight goes dark.
+    #[serde(default = "default_true")]
+    pub rests: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

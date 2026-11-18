@@ -1723,7 +1723,7 @@ impl<'a> Pages<'a> {
             // refresh.
             self.surface.speed_up()?;
             self.rested_at = None;
-        } else if self.surface.is_on() {
+        } else if self.surface.is_on() && self.cfg.display.rests {
             // With the backlight off, the panel rests, and the touch
             // controller following it stops drawing power.
             self.surface.rest()?;

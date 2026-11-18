@@ -32,6 +32,11 @@ load = ["focaltech_touch"]
 # report positions itself; that is known of the 17 Ultra's Synaptics
 # controller and not yet tried on this phone's FocalTech one.
 [touch]
+# Told to follow the panel into its low-power rest, this controller does not
+# come back with it: the screen goes dark and nothing is left to wake it but
+# the power key. So the panel is left on, lit with a black frame, and only
+# the backlight goes dark — a touch anywhere lights it again.
+rests = false
 writes = [{ path = "/sys/class/touch/touch_dev/enable_touch_raw", value = "0" }]
 
 # The firmware the WLAN chip's driver loads is on the modem partition, which
