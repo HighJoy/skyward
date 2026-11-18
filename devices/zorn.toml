@@ -31,6 +31,21 @@ load = ["focaltech_touch"]
 [touch]
 writes = [{ path = "/sys/class/touch/touch_dev/enable_touch_raw", value = "0" }]
 
+# The firmware the WLAN chip's driver loads is on the modem partition, which
+# the phone's own table mounts at /vendor/firmware_mnt with the wait flag. A
+# recovery runs none of init's boots, so the recovery mounts it itself, and
+# shows it where its own firmware loader looks.
+[firmware]
+partition = "modem"
+
+# The persist partition, at /mnt/vendor/persist in the phone's own table. The
+# secure world keeps its own files there through a listener qseecomd
+# registers: among them what the key service needs to use a key that cannot
+# be rolled back, such as the one guarding each user's secret. The WLAN's
+# MAC address is there as well.
+[partitions]
+mounted = ["persist"]
+
 # What the phone's own init runs once the system has finished starting, as
 # kernel-post-boot in /vendor/etc/init/hw/init.qti.kernel.rc. The kernel
 # starts the CPU clusters on the performance governor, which holds them at
