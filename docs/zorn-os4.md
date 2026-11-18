@@ -32,7 +32,7 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 | 文件 | 改动 |
 | --- | --- |
-| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`）、`[backup]`、`[wipe]`（照 17 Ultra）、`display.corner_radius = 140`（照 13 Ultra）；显示尺寸、触摸、WLAN、振动、post_boot 服务未动 |
+| `devices/zorn.toml` | `[stock]` 三段改为 OS4.0.3.0：`version`、`package`（新加坡镜像）、`recovery`（新的 SHA-256）；补 `[firmware] partition = "modem"`、`[partitions] mounted = ["persist"]`（依据原厂 `fstab.qcom`）、`[backup]`、`[wipe]`（照 17 Ultra）、`display.corner_radius = 140`（照 13 Ultra）；`display.density` 由 560 改为 600（依据实机 `persist.sys.miui_resolution`）；去掉 `[wlan].firmware` 里的 `wlan_mac.bin`（实机 persist 里没有这个文件）；触摸、振动、post_boot 服务未动 |
 | `README.md` | 支持列表里 K80 一行：`OS3.0.309.0.WOKCNXM (Android 16)` → `OS4.0.3.0.XOKCNXM (Android 17)` |
 | `README.zh-CN.md` | 同上 |
 | `crates/skyward-config/src/lib.rs` | `each_phone_names_the_stock_build_its_recovery_is_made_on` 里 zorn 的期望版本号跟着改；否则测试与配置互相对不上 |
@@ -93,6 +93,22 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `display.diagonal` | 只影响“关于本机”的屏幕尺寸显示，未核对前不写 |
 | `haptics.click` / 强度 | 17 Ultra 用采样合成、13 Ultra 用驱动自带波形 0；K80 马达的实际谐振与手感要现场试 |
 | `[[owners]]` | 13 Ultra 需要，是因为它的面板只报原始帧、必须跑厂家的触摸程序；K80 让驱动自己报坐标，同 17 Ultra 的路子，不需要 |
+
+## 实机信息核对（OS4.0.3.0，已 root 的运行系统）
+
+在手机上跑 `out/collect-zorn-su.sh`（脚本不在仓库里）读出的事实，以及据此改动：
+
+| 读到 | 值 | 据此 |
+| --- | --- | --- |
+| `persist.sys.miui_resolution` | `1440,3200,600` | `display.density` 由 560 改为 **600** |
+| `ro.boot.hwc` / `ro.boot.product.vendor.sku` | `CN` / `pineapple` | 读的正是 `manifest_pineapple.xml`（gatekeeper 在那里） |
+| `by-name` 里的 `modemst1/2`、`fsg`、`fsc`、`persist` | 五个都在 | `[backup].efs` 成立 |
+| `persist.vendor.sys.fp.vendor` | `goodix_us` | 指纹是 goodix；`data_skipped` 里 goodix 必须有，fpc 一并留着无害 |
+| `/data/vendor` 与 `/data/vendor/misc` | `tzstorage`、`qtee`、`mitee`、`goodix`、`fpc`、`fingerprint`、`fpdata`、`misc/mi_fp` 都在 | `data_skipped` 八项全部命中 |
+| `/sys/class/touch/touch_dev/enable_touch_raw` | 存在，`system:system` 0664 | `[touch].writes` 的节点名正确 |
+| `lra_frequency_hz` | `1749`（十分之一赫兹，即 174.9 Hz） | `[haptics].resonance` 路径正确 |
+| `/vendor/lib/modules` | `focaltech_touch.ko`、`qca_cld3_kiwi_v2.ko` | `[modules].load`、`[wlan].modules` 正确 |
+| `/mnt/vendor/persist/wlan` | **空目录**；`persist/kiwi_v2` 不存在 | `[wlan].firmware` 去掉 `wlan_mac.bin` 一项：文件不在，`place()` 读它会报错并中断 WLAN 启动；地址由芯片自己给 |
 
 ## 验证
 

@@ -8,13 +8,12 @@ os_version_prop = "ro.mi.os.version.incremental"
 
 [display]
 # The panel's own mode, vendor.display.default_resolution in the odm
-# partition's build.prop and the o11 panels' mode in the device tree:
-# 1440 by 3200. persist.sys.miui_resolution gives the lower mode the system
-# starts in, 1080 by 2400 at 420, as the 13 Ultra's does; the density is
-# that one's, at the panel's own width, as the 13 Ultra's is.
+# partition's build.prop: 1440 by 3200. persist.sys.miui_resolution gives
+# the mode and the density the system runs in on this phone, 1440 by 3200
+# at 600.
 width = 1440
 height = 3200
-density = 560
+density = 600
 # The radius the stock settings round a page's corners to as it slides in:
 # the 13 Ultra's, whose panel is cut to the same corners.
 corner_radius = 140
@@ -69,16 +68,17 @@ groups = ["root", "system", "wakelock", "graphics"]
 # modules.load lists. Its cfg80211 asks for rfkill, one of the kernel's own
 # modules in system_dlkm, as the 17 Ultra's does. Its recovery covers the
 # vendor partition's firmware folder with the modem's, as the 13 Ultra's
-# does, so the settings and the MAC address are given to the loader again:
-# the settings from the vendor partition, the address from where the
-# vendor's link points in persist. wpa_supplicant runs on the recovery's
-# own libraries before the vendor partition's, as on the 17 Ultra.
+# does, so the settings are given to the loader again, from the vendor
+# partition. The address the vendor's other link names is not on this
+# phone: persist/wlan holds nothing, and the driver takes the address from
+# the chip, so nothing is placed for it — a file that is not there would
+# stop the bring-up. wpa_supplicant runs on the recovery's own libraries
+# before the vendor partition's, as on the 17 Ultra.
 [wlan]
 modules = ["rfkill", "qca_cld3_kiwi_v2"]
 writes = [{ path = "/sys/kernel/cnss/fs_ready", value = "1" }]
 firmware = [
     { name = "wlan/qca_cld/kiwi_v2/WCNSS_qcom_cfg.ini", path = "/vendor/etc/wifi/kiwi_v2/WCNSS_qcom_cfg.ini" },
-    { name = "wlan/qca_cld/kiwi_v2/wlan_mac.bin", partition = "persist", path = "wlan/wlan_mac.bin" },
 ]
 interface = "wlan0"
 supplicant = "/vendor/bin/hw/wpa_supplicant"
