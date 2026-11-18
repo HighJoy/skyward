@@ -44,6 +44,7 @@ const WAITING_CALLERS: libc::c_int = 1 << 30;
 /// The variable a program's loader reads the folders of its libraries
 /// from.
 const LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
+const PRELOAD: &str = "LD_PRELOAD";
 
 /// Keep each program running, one thread per program: start it, and start
 /// it again whenever it exits. They are started in the order they are
@@ -404,6 +405,18 @@ fn command(s: &Service, who: &Credentials, given: &Given, handed: &[(String, Own
     if !libraries.is_empty() {
         cmd.env(LIBRARY_PATH, libraries.join(":"));
     }
+    // A HAL of the phone's is built against the C++ runtime the system
+    // carries, which is newer than the recovery's libc++: the one that calls
+    // __libcpp_verbose_abort does not start on it at all. Where the system
+    // has a runtime, it goes in first, and the recovery's libraries are
+    // still what everything else is found in.
+    if let Some(cxx) = system_cxx(Path::new(&s.path)) {
+        let preload = match given.environment.iter().find(|(name, _)| name == PRELOAD) {
+            Some((_, before)) => format!("{}:{before}", cxx.display()),
+            None => cxx.display().to_string(),
+        };
+        cmd.env(PRELOAD, preload);
+    }
     for (variable, socket) in handed {
         cmd.env(variable, socket.as_raw_fd().to_string());
     }
@@ -424,6 +437,15 @@ fn command(s: &Service, who: &Credentials, given: &Given, handed: &[(String, Own
         })
     };
     cmd
+}
+
+/// The C++ runtime the system carries, for the HALs of the phone built
+/// against it. Only the hw folders of vendor and odm hold those: what the
+/// recovery starts from its own partitions is built for the recovery's.
+fn system_cxx(program: &Path) -> Option<PathBuf> {
+    let hw = program.starts_with("/vendor/bin/hw/") || program.starts_with("/odm/bin/hw/");
+    let cxx = Path::new("/mnt/system/system/lib64/libc++.so");
+    (hw && cxx.is_file()).then(|| cxx.to_path_buf())
 }
 
 /// Lock in memory every file the running programs have mapped or open on
