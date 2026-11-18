@@ -8,15 +8,30 @@ pub mod modprobe;
 /// Where a module source's files are in the recovery: the vendor_boot
 /// ramdisk's modules under /lib/modules, the vendor_dlkm and vendor
 /// partitions where they are mounted, and the kernel's own modules in
-/// system_dlkm, which it also keeps in one folder.
+/// system_dlkm, which keeps them in a folder per kernel it ships them for.
 pub fn source_dir(source: &str) -> Result<PathBuf> {
-    Ok(PathBuf::from(match source {
-        "vendor_boot" => "/lib/modules",
-        "vendor_dlkm" => "/vendor_dlkm/lib/modules",
-        "vendor" => "/vendor/lib/modules",
-        "system_dlkm" => "/system_dlkm/flatten/lib/modules",
+    Ok(match source {
+        "vendor_boot" => PathBuf::from("/lib/modules"),
+        "vendor_dlkm" => PathBuf::from("/vendor_dlkm/lib/modules"),
+        "vendor" => PathBuf::from("/vendor/lib/modules"),
+        "system_dlkm" => system_dlkm(),
         _ => bail!("unknown module source {source:?}"),
-    }))
+    })
+}
+
+/// The kernel's own modules, in the folder named after the release the
+/// running kernel was built as. system_dlkm also keeps `flatten`, every
+/// kernel's modules in one folder, which is not what a recovery wants: on
+/// this phone it holds the AOSP kernel's, whose modules the running kernel
+/// refuses — `rfkill` exports a protected symbol there, so nothing that
+/// depends on it loads and a WLAN driver that asks for it never comes up.
+fn system_dlkm() -> PathBuf {
+    let release = fs::read_to_string("/proc/sys/kernel/osrelease").map(|s| s.trim().to_string()).unwrap_or_default();
+    let by_release = PathBuf::from("/system_dlkm/lib/modules").join(&release);
+    if !release.is_empty() && by_release.is_dir() {
+        return by_release;
+    }
+    PathBuf::from("/system_dlkm/flatten/lib/modules")
 }
 
 /// Load `names` (module names without `.ko`) with their dependencies. Each
