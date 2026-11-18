@@ -18,6 +18,12 @@ diagonal = 6.67
 # The radius the stock settings round a page's corners to as it slides in:
 # the 13 Ultra's, whose panel is cut to the same corners.
 corner_radius = 140
+# Told to follow the panel into the low-power rest it goes into as the
+# screen darkens, this phone's FocalTech controller does not come back with
+# it: the screen stays dark and the power key is all that is left to wake
+# it. So the panel stays on, showing the black frame the screen already
+# goes dark with, and only the backlight goes down — a touch lights it.
+rests = false
 
 [modules]
 sources = ["vendor_boot", "vendor_dlkm", "vendor", "system_dlkm"]
@@ -32,11 +38,6 @@ load = ["focaltech_touch"]
 # report positions itself; that is known of the 17 Ultra's Synaptics
 # controller and not yet tried on this phone's FocalTech one.
 [touch]
-# Told to follow the panel into its low-power rest, this controller does not
-# come back with it: the screen goes dark and nothing is left to wake it but
-# the power key. So the panel is left on, lit with a black frame, and only
-# the backlight goes dark — a touch anywhere lights it again.
-rests = false
 writes = [{ path = "/sys/class/touch/touch_dev/enable_touch_raw", value = "0" }]
 
 # The firmware the WLAN chip's driver loads is on the modem partition, which
