@@ -112,8 +112,12 @@ pub fn start(steps: &[Step]) -> Result<()> {
                     // the service waited on again.
                     Err(e) if element => {
                         skyward_sys::kmsg(&format!("{} did not come up: {e:#}; opening the controller", program.service.path))?;
-                        crate::services::awake_nfc()?;
-                        crate::services::await_ready(&program.service)?;
+                        match crate::services::awake_nfc().and_then(|()| crate::services::await_ready(&program.service)) {
+                            Ok(()) => {}
+                            // The weaver is started either way: it says for
+                            // itself what it can do without the element.
+                            Err(e) => skyward_sys::kmsg(&format!("the element is still not registered: {e:#}"))?,
+                        }
                     }
                     Err(e) => return Err(e),
                 }
