@@ -172,7 +172,7 @@ mod tests {
     fn a_build_the_bootloader_does_not_name_is_named_as_the_phone_s_init_names_it() {
         let dir = tempfile::tempdir().unwrap();
         let named_by_none = phone(dir.path(), BY_THE_CHIP, "", &[("ro.boot.hardware", "qcom"), ("ro.boot.product.hardware.sku", "ishtar")]);
-        let vendor_libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"];
+        let vendor_libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"];
         assert_eq!(
             steps(&named_by_none).unwrap(),
             [
@@ -193,7 +193,7 @@ mod tests {
         let odm = "on charger\n    setprop ro.boot.product.hardware.sku charging\n";
         let dir = tempfile::tempdir().unwrap();
         let phone = phone(dir.path(), vendor, odm, &[("ro.boot.hardware", "qcom"), ("ro.boot.hwc", "CN")]);
-        let odm_libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"];
+        let odm_libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"];
         assert_eq!(
             steps(&phone).unwrap(),
             [
