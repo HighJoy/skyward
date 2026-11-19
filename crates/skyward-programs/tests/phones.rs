@@ -58,8 +58,8 @@ fn strings(words: &[&str]) -> Vec<String> {
 
 /// The folders a program finds its libraries in, by the partition it is
 /// on.
-const ON_VENDOR: [&str; 5] = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"];
-const ON_ODM: [&str; 6] = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"];
+const ON_VENDOR: [&str; 5] = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"];
+const ON_ODM: [&str; 6] = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"];
 const ON_SYSTEM: [&str; 3] = ["/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64", "/mnt/system_ext/lib64"];
 
 /// A program kept running as `user` in `groups`, with nothing else said
@@ -302,7 +302,7 @@ fn ishtar_s_programs_look_in_its_bundle_before_the_installed_system_s_folders() 
     let libraries = |path: &str| &found.iter().find(|s| s.service.path == path).unwrap_or_else(|| panic!("{path} is started")).service.libraries;
     assert_eq!(
         *libraries("/vendor/bin/hw/android.hardware.security.keymint-service-qti"),
-        ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", bundle, "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
+        ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", bundle, "/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64"]
     );
     assert_eq!(*libraries("/mnt/system_ext/bin/hwservicemanager"), ["/mnt/system/system/lib64/bootstrap", "/mnt/system/system/lib64", "/mnt/system_ext/lib64", bundle]);
 }
