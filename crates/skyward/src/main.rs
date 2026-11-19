@@ -602,11 +602,25 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         skyward_sys::kmsg(&format!("the phone's own libraries are at {}", dir.display()))?;
     }
     services::start(&services, libraries.as_deref())?;
-    let steps = found.context("make out from the phone's partitions how its keys are used")?;
-    for line in keys::describe(&steps) {
-        skyward_sys::kmsg(&format!("for the phone's keys: {}", line.replace("\n  ", ", ")))?;
+    // Where what the partitions say cannot be made out, the keys are left
+    // to the programs the configuration names, which are started already:
+    // a phone whose element is served by a program of its own needs none of
+    // what is made out here.
+    // Where the configuration names the programs that use the keys, they are
+    // what uses them: what is made out from the partitions would start a
+    // second weaver beside them, and the two would take the one place the
+    // service directory keeps for it.
+    let named = cfg.services.iter().any(|s| s.path.contains("weaver"));
+    match found.context("make out from the phone's partitions how its keys are used") {
+        Ok(_) if named => skyward_sys::kmsg("the keys are used by the programs the configuration names")?,
+        Ok(steps) => {
+            for line in keys::describe(&steps) {
+                skyward_sys::kmsg(&format!("for the phone's keys: {}", line.replace("\n  ", ", ")))?;
+            }
+            keys::start(&steps)?;
+        }
+        Err(e) => skyward_sys::kmsg(&format!("the keys are left to the programs the configuration names: {e:#}"))?,
     }
-    keys::start(&steps)?;
     agree_on_the_notes_key(&registering)
 }
 

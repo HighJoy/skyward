@@ -350,6 +350,11 @@ pub struct Service {
     /// Directories for LD_LIBRARY_PATH, searched in order.
     #[serde(default)]
     pub libraries: Vec<String>,
+    /// Libraries loaded before any other, in this order, as LD_PRELOAD
+    /// takes them: a program of the phone's that is built against a newer
+    /// runtime than the recovery carries needs one of its own.
+    #[serde(default)]
+    pub preload: Vec<String>,
     /// The program runs once, to its end, as a service of init's marked
     /// oneshot does: it is not started again, the programs after it start
     /// once it has ended, and it has to end well.

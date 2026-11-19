@@ -473,17 +473,20 @@ fn command(s: &Service, who: &Credentials, given: &Given, handed: &[(String, Own
     if !libraries.is_empty() {
         cmd.env(LIBRARY_PATH, libraries.join(":"));
     }
-    // A HAL of the phone's is built against the C++ runtime the system
-    // carries, which is newer than the recovery's libc++: the one that calls
-    // __libcpp_verbose_abort does not start on it at all. Where the system
-    // has a runtime, it goes in first, and the recovery's libraries are
-    // still what everything else is found in.
+    // What the program is given to load first: the libraries the
+    // configuration names, and a runtime of the installed system's for the
+    // HALs of the phone's, which are built against a newer C++ runtime than
+    // the recovery carries — one that calls __libcpp_verbose_abort does not
+    // start on the recovery's at all.
+    let mut preload: Vec<String> = s.preload.clone();
     if let Some(cxx) = system_cxx(Path::new(&s.path)) {
-        let preload = match given.environment.iter().find(|(name, _)| name == PRELOAD) {
-            Some((_, before)) => format!("{}:{before}", cxx.display()),
-            None => cxx.display().to_string(),
-        };
-        cmd.env(PRELOAD, preload);
+        preload.push(cxx.display().to_string());
+    }
+    if let Some((_, before)) = given.environment.iter().find(|(name, _)| name == PRELOAD) {
+        preload.push(before.clone());
+    }
+    if !preload.is_empty() {
+        cmd.env(PRELOAD, preload.join(":"));
     }
     for (variable, socket) in handed {
         cmd.env(variable, socket.as_raw_fd().to_string());
