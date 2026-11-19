@@ -118,12 +118,26 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 | `/vendor/lib/modules` | `focaltech_touch.ko`、`qca_cld3_kiwi_v2.ko` | `[modules].load`、`[wlan].modules` 正确 |
 | `/mnt/vendor/persist/wlan` | **空目录**；`persist/kiwi_v2` 不存在 | `[wlan].firmware` 去掉 `wlan_mac.bin` 一项：文件不在，`place()` 读它会报错并中断 WLAN 启动；地址由芯片自己给 |
 
+## 解密
+
+`/data` 的密钥在 weaver 的槽位里，weaver 经 OMAPI 读它，而 recovery 里没有 framework 去提供 OMAPI。这一版带上了三件从手机自带 TWRP 里取来的东西，都放在 `ports/zorn/ramdisk/`，打包时用 `--extra` 放进 ramdisk：
+
+| 文件 | 作用 |
+| --- | --- |
+| `skyward/omapi/lib64/libskyward_omapi_compat.so` | 兼容层。没有它，高通的 `secure_element-service.qti` 每秒退出一次，一个元件也不注册 |
+| `skyward/omapi/se_omapi` | recovery 自己的 OMAPI 服务，为每个已注册的安全元件建一个 reader |
+| `skyward/nxp/weaver` + `lib64/ese_weaver.so` | NXP 的 weaver v2，经 OMAPI 读槽位；`/skyward/nxp/lib64` 里还有它要的 AIDL v2 桩与 keymint transport |
+
+链路是：`secure_element-service.qti`（先加载兼容层）注册 `ISecureElement/eSE1` → `se_omapi` 为它建 reader → `weaver` 读槽位。实测日志 `weaver: Read slot 0 OK`，锁屏密码能解开 `/data`。
+
+`[service]` 里点名了这三个程序之后，Skyward 不再从分区自己推导密钥步骤（`the keys are used by the programs the configuration names`），否则它会再起一个手机自带的 weaver，两个抢服务目录里同一个位置。
+
 ## 验证
 
 - CI（`.github/workflows/k80.yml`）三步全绿：`cargo clippy --workspace --all-targets -D warnings`、`cargo test --workspace`、手机目标 clippy，以及取原厂 recovery → 校验 SHA-256 → 打包 → 压 zip。
   产物：`skyward-<sha7>-zorn-OS4.0.3.0.XOKCNXM.zip`（约 44.7 MB），在 run 页面的 Artifacts 里。
 - AVB 页脚：用上游 `crates/skyward-pack/tests/avb-footer-*.bin`（avbtool 1.4.0 生成）逐字节比对通过。
-- 尚未在真机上验证：解密、触摸、WLAN、振动。
+- 真机已验证：进 recovery、触摸（含熄屏再点亮）、WLAN、`/data` 解密。振动与 fastbootd 的触摸仍未验证。
 
 ## 复现
 
@@ -142,6 +156,7 @@ target/release/skyward-pack recovery \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
+  --extra ports/zorn/ramdisk \
   --out target/skyward-zorn.img
 ```
 
