@@ -161,3 +161,14 @@ user = "nfc"
 group = "nfc"
 mode = 0o660
 paths = ["/dev/nq-nci"]
+
+# The node the secure element is reached through: the SPI line the element
+# hangs on, made by ir-spi.ko as root's alone. The phone's own table gives
+# that name to another element's node, so a recovery makes this one for
+# root, and the weaver, which runs in system, cannot read the slots the
+# data partition's key is kept in.
+[[owners]]
+user = "system"
+group = "system"
+mode = 0o660
+paths = ["/dev/ir_spi"]
