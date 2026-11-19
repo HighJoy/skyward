@@ -542,8 +542,18 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         let at = skyward_block::fstab::mount(name)?;
         skyward_sys::kmsg(&format!("{name} is mounted on {}", at.display()))?;
     }
-    for path in load_modules(cfg, &cfg.modules.load)? {
-        skyward_sys::kmsg(&format!("loaded {}", path.display()))?;
+    // A module the phone's own build has no place for is said so and left
+    // out: what it would serve is one page, where the keys and the data
+    // partition are all of them.
+    for name in &cfg.modules.load {
+        match load_modules(cfg, std::slice::from_ref(name)) {
+            Ok(paths) => {
+                for path in paths {
+                    skyward_sys::kmsg(&format!("loaded {}", path.display()))?;
+                }
+            }
+            Err(e) => skyward_sys::kmsg(&format!("{name} is not loaded: {e:#}"))?,
+        }
     }
     if !cfg.owners.is_empty() {
         let handed = hand_over(&cfg.owners)?;
