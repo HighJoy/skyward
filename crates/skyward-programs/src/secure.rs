@@ -8,6 +8,7 @@ use crate::phone::{Happens, Phone};
 use crate::script::{Program, Socket};
 use anyhow::{bail, ensure, Context, Result};
 use skyward_config::Service;
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// The key service, and the packages whose services it serves besides: it
@@ -287,7 +288,7 @@ fn element(phone: &Phone, name: &str) -> Result<Started> {
     // on most phones, but not on all: this one's built-in element is served
     // by the NFC controller's own service, whose file is named after the
     // controller. The script's own words come first either way.
-    let program = behind(phone, "a secure element's service", name, |file| file.contains("secure_element") || file.contains("nqnfc"))?;
+    let program = behind(phone, "a secure element's service", name, |file| file.contains("secure_element") || file.contains("nqnfc-service"))?;
     let told = described(phone, Kind::Aidl, name).expect("the service was found among those described");
     let of_an_element = |d: &Described| (d.package.as_str(), d.interface.as_str()) == ELEMENT;
     let own = match of_an_element(&told.described) {
@@ -331,6 +332,21 @@ fn stem(path: &str) -> &str {
     file.rsplit_once('.').map_or(file, |(stem, _)| stem)
 }
 
+/// The words a file's own name is made of: manifest_nxp_nfc_ese.xml gives
+/// nxp, nfc and ese. Words that say where a file is and what kind it is,
+/// and so are in every name in a folder, are left out.
+fn words(path: &str) -> BTreeSet<String> {
+    stem(path)
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| word.len() > 2)
+        .map(str::to_ascii_lowercase)
+        .filter(|word| !NAMELY.contains(&word.as_str()))
+        .collect()
+}
+
+/// What a name in a folder of descriptions or scripts says of no program.
+const NAMELY: [&str; 8] = ["android", "hardware", "manifest", "service", "default", "vendor", "odm", "system"];
+
 /// The one program the phone runs whose file is named `file`; none where
 /// the phone has none.
 fn named<'a>(phone: &'a Phone, file: &str) -> Result<Option<&'a Program>> {
@@ -353,7 +369,15 @@ fn behind<'a>(phone: &'a Phone, what: &str, name: &str, matches: impl Fn(&str) -
     let saying: Vec<&Program> = phone.programs.iter().filter(|p| p.interfaces.iter().any(|i| i == name)).collect();
     let may: Vec<&Program> = phone.programs.iter().filter(|p| !on_demand(p)).collect();
     let described_with: Vec<&Program> = match phone.services.iter().find(|s| s.described.name() == name) {
-        Some(service) => may.iter().copied().filter(|p| !p.script.is_empty() && stem(&p.script) == stem(&service.file)).collect(),
+        Some(service) => {
+            // The program that registers a described service is named after
+            // it on most phones, and not on all: the built-in secure
+            // element's service here is nfc-service-nxp, where the phone
+            // describes it in manifest_nxp_nfc_ese.xml. What the two names
+            // share is what pairs them.
+            let said = words(&service.file);
+            may.iter().copied().filter(|p| !p.script.is_empty() && !said.is_disjoint(&words(&p.script))).collect()
+        }
         None => Vec::new(),
     };
     let matching: Vec<&Program> = may.iter().copied().filter(|p| matches(file_name(p))).collect();
