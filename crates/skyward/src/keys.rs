@@ -106,19 +106,11 @@ pub fn start(steps: &[Step]) -> Result<()> {
                 let element = program.service.ready_service.as_deref().is_some_and(|name| name.contains("ISecureElement"));
                 match crate::services::start(std::slice::from_ref(program.as_ref()), None) {
                     Ok(()) => {}
-                    // The element is registered by the controller's own
-                    // service, and only once the controller is open: nothing
-                    // else in a recovery opens it, so it is opened here and
-                    // the service waited on again.
-                    Err(e) if element => {
-                        skyward_sys::kmsg(&format!("{} did not come up: {e:#}; opening the controller", program.service.path))?;
-                        match crate::services::awake_nfc().and_then(|()| crate::services::await_ready(&program.service)) {
-                            Ok(()) => {}
-                            // The weaver is started either way: it says for
-                            // itself what it can do without the element.
-                            Err(e) => skyward_sys::kmsg(&format!("the element is still not registered: {e:#}"))?,
-                        }
-                    }
+                    // An element's service that does not come up is said so
+                    // and left out: the programs after it, the weaver among
+                    // them, are started either way, and say for themselves
+                    // what they can do without it.
+                    Err(e) if element => skyward_sys::kmsg(&format!("{} did not come up: {e:#}", program.service.path))?,
                     Err(e) => return Err(e),
                 }
             }

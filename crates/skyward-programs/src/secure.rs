@@ -283,17 +283,7 @@ fn weaver(phone: &Phone) -> Result<Vec<Step>> {
 /// `name` itself or the one the program's own description tells of beside
 /// it.
 fn element(phone: &Phone, name: &str) -> Result<Started> {
-    // The program that registers a secure element is named after the element
-    // on most phones, but not on all: this one's built-in element is served
-    // by the NFC controller's service, whose file is named after the
-    // controller — android.hardware.nqnfc-service.nxp. The script's own words
-    // are looked at first either way; this only settles which file is meant
-    // when they say nothing.
-    let built_in = name.to_ascii_lowercase().contains("ese");
-    let program = behind(phone, "a secure element's service", name, |file| match built_in {
-        true => file.contains("nqnfc-service") || (file.contains("secure_element") && !file.contains("qti")),
-        false => file.contains("secure_element"),
-    })?;
+    let program = behind(phone, "a secure element's service", name, |file| file.contains("secure_element"))?;
     let told = described(phone, Kind::Aidl, name).expect("the service was found among those described");
     let of_an_element = |d: &Described| (d.package.as_str(), d.interface.as_str()) == ELEMENT;
     let own = match of_an_element(&told.described) {
@@ -336,7 +326,6 @@ fn stem(path: &str) -> &str {
     let file = path.rsplit('/').next().unwrap_or(path);
     file.rsplit_once('.').map_or(file, |(stem, _)| stem)
 }
-
 
 /// The one program the phone runs whose file is named `file`; none where
 /// the phone has none.
