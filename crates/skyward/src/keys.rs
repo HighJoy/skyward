@@ -102,7 +102,19 @@ pub fn serves_elements(steps: &[Step]) -> bool {
 pub fn start(steps: &[Step]) -> Result<()> {
     for step in steps {
         match step {
-            Step::Start(program) => crate::services::start(std::slice::from_ref(program.as_ref()), None)?,
+            // The element's service is what the weaver reaches the element
+            // through, and the recovery does not need it to be there to open
+            // the data partition: where it does not come up, the weaver is
+            // started anyway, and says for itself what it can do.
+            Step::Start(program) => {
+                if let Err(e) = crate::services::start(std::slice::from_ref(program.as_ref()), None) {
+                    let element = program.service.ready_service.as_deref().is_some_and(|name| name.contains("ISecureElement"));
+                    match element {
+                        true => skyward_sys::kmsg(&format!("{} did not come up: {e:#}", program.service.path))?,
+                        false => return Err(e),
+                    }
+                }
+            }
             Step::ServeElements => {
                 let readers = skyward_omapi::start()?;
                 skyward_sys::kmsg(&format!("{} is served, with a reader for each of {} secure elements: {}", skyward_omapi::SERVICE, readers.len(), readers.join(", ")))?;

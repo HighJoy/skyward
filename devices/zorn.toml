@@ -150,3 +150,14 @@ logs = [
     "/data/vendor/tombstones",
     "/data/vendor/wlan_logs",
 ]
+
+# The NFC controller's node, as the phone's own ueventd makes it: nfc's, to
+# read and write, with the rest of the phone kept out. The secure element's
+# service runs as nfc and opens it, and a recovery's ueventd makes the node
+# for root alone — the service then never registers the element, the weaver
+# behind it never starts, and the data partition stays closed.
+[[owners]]
+user = "nfc"
+group = "nfc"
+mode = 0o660
+paths = ["/dev/nq-nci"]
