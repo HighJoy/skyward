@@ -1,7 +1,10 @@
 use anyhow::{bail, ensure, Context, Result};
 use procfs::process::{FDTarget, MMapPath, Process};
-use skyward_binder::parcel::Parcel;
-use skyward_binder::{status, driver};
+use skyward_binder::driver;
+use skyward_binder::parcel::{Parcel, Reader};
+use skyward_binder::serve::{Object, Objects};
+use skyward_binder::status::{self, Refusal};
+use std::sync::Arc;
 use skyward_config::Service;
 use skyward_programs::script::{Socket, SocketKind};
 use skyward_programs::secure::Started;
@@ -324,24 +327,56 @@ fn set_capabilities(mask: u64) -> io::Result<()> {
 }
 
 
-/// The NFC controller's main interface, and the first method it has. Its
-/// service registers the element the weaver keeps its key in only once the
-/// controller is open, and nothing else in a recovery opens it.
+/// The NFC controller's main interface, the object it reports to, and the
+/// first method the interface has. Its service registers the element the
+/// weaver keeps its key in only once the controller is open, and nothing
+/// else in a recovery opens it.
 const NFC: &str = "android.hardware.nfc.INfc/default";
 const NFC_INTERFACE: &str = "android.hardware.nfc.INfc";
+const NFC_CALLBACK: &str = "android.hardware.nfc.INfcClientCallback";
 const NFC_OPEN: u32 = 1;
 
+/// What the controller reports to once it is asked to open.
+struct Told;
+
+impl Object<driver::Binder> for Told {
+    fn interface(&self) -> &'static str {
+        NFC_CALLBACK
+    }
+
+    fn version(&self) -> i32 {
+        1
+    }
+
+    fn hash(&self) -> &'static str {
+        ""
+    }
+
+    fn call(&self, _with: &driver::Binder, _code: u32, _read: &mut Reader) -> Result<Option<Parcel>, Refusal> {
+        // What the controller reports of itself is of no use here: it is
+        // asked to open only so that its service takes the element up.
+        Ok(Some(status::went_through()))
+    }
+}
+
 /// Open the NFC controller, so that its service takes the controller up and
-/// registers the secure element inside it.
+/// registers the secure element inside it. The service wants an object to
+/// report to, and turns down an open without one.
 pub(crate) fn awake_nfc() -> Result<()> {
-    let binder = driver::Binder::open()?;
+    let objects: Arc<Objects<driver::Binder>> = Arc::new(Objects::default());
+    let binder = Arc::new(driver::Binder::serving(objects.clone()).context("open the driver to take the controller's reports")?);
+    let taking = binder.clone();
+    thread::Builder::new()
+        .name("nfc-told".into())
+        .spawn(move || {
+            let _ = taking.serve();
+        })
+        .context("start a thread to take the controller's reports")?;
     let Some(device) = skyward_binder::service::find(&binder, NFC)? else {
         return Ok(());
     };
     let mut ask = Parcel::call(NFC_INTERFACE);
-    // The controller reports what it reads to whoever opens it; what it
-    // would report is of no use here, and a null callback is taken.
-    ask.object(0);
+    ask.object(objects.keep(Arc::new(Told)));
     let reply = device.transact(NFC_OPEN, &ask).context("open the NFC controller")?;
     let mut read = reply.read();
     status::ok(&mut read).context("open the NFC controller")?;
