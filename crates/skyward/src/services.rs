@@ -1,5 +1,7 @@
 use anyhow::{bail, ensure, Context, Result};
 use procfs::process::{FDTarget, MMapPath, Process};
+use skyward_binder::parcel::Parcel;
+use skyward_binder::{status, driver};
 use skyward_config::Service;
 use skyward_programs::script::{Socket, SocketKind};
 use skyward_programs::secure::Started;
@@ -319,6 +321,37 @@ fn set_capabilities(mask: u64) -> io::Result<()> {
     } else {
         Err(io::Error::last_os_error())
     }
+}
+
+
+/// The NFC controller's main interface, and the first method it has. Its
+/// service registers the element the weaver keeps its key in only once the
+/// controller is open, and nothing else in a recovery opens it.
+const NFC: &str = "android.hardware.nfc.INfc/default";
+const NFC_INTERFACE: &str = "android.hardware.nfc.INfc";
+const NFC_OPEN: u32 = 1;
+
+/// Open the NFC controller, so that its service takes the controller up and
+/// registers the secure element inside it.
+pub(crate) fn awake_nfc() -> Result<()> {
+    let binder = driver::Binder::open()?;
+    let Some(device) = skyward_binder::service::find(&binder, NFC)? else {
+        return Ok(());
+    };
+    let mut ask = Parcel::call(NFC_INTERFACE);
+    // The controller reports what it reads to whoever opens it; what it
+    // would report is of no use here, and a null callback is taken.
+    ask.object(0);
+    let reply = device.transact(NFC_OPEN, &ask).context("open the NFC controller")?;
+    let mut read = reply.read();
+    status::ok(&mut read).context("open the NFC controller")?;
+    Ok(())
+}
+
+/// Wait until the program has what it says it will be ready with, as
+/// starting it does.
+pub(crate) fn await_ready(s: &Service) -> Result<()> {
+    ready(s)
 }
 
 /// Wait until the program has what it says it will be ready with.
