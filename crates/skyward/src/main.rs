@@ -601,22 +601,27 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     if let Some(dir) = &libraries {
         skyward_sys::kmsg(&format!("the phone's own libraries are at {}", dir.display()))?;
     }
-    services::start(&services, libraries.as_deref())?;
-    // Where the configuration names the programs that use the keys, they are
-    // what uses them: what is made out from the partitions would start a
-    // second weaver beside them, and the two would take the one place the
-    // service directory keeps for it. Where nothing can be made out at all,
-    // the programs the configuration names are all there is.
-    let named = cfg.services.iter().any(|s| s.path.contains("weaver"));
-    match found.context("make out from the phone's partitions how its keys are used") {
-        Ok(_) if named => skyward_sys::kmsg("the keys are used by the programs the configuration names")?,
-        Ok(steps) => {
+    // What the configuration names that the phone's own partitions name
+    // too is the same program, started in the place the partitions give it
+    // and with what only the configuration knows of this build of it. What
+    // the partitions do not name is started after them; where they say
+    // nothing of the keys at all, the configuration's programs are all
+    // there is.
+    let mut extra: Vec<skyward_config::Service> = services.iter().map(|s| s.service.clone()).collect();
+    let plan = found.as_ref().ok().map(|steps| keys::with_config(steps, &mut extra));
+    let ordinary: Vec<Started> = extra.into_iter().map(Started::from).collect();
+    services::start(&ordinary, libraries.as_deref())?;
+    match plan {
+        Some(steps) => {
             for line in keys::describe(&steps) {
                 skyward_sys::kmsg(&format!("for the phone's keys: {}", line.replace("\n  ", ", ")))?;
             }
             keys::start(&steps)?;
         }
-        Err(e) => skyward_sys::kmsg(&format!("the keys are left to the programs the configuration names: {e:#}"))?,
+        None => {
+            let why = found.as_ref().err().map(|e| format!("{e:#}")).unwrap_or_default();
+            skyward_sys::kmsg(&format!("the keys are left to the programs the configuration names: {why}"))?;
+        }
     }
     agree_on_the_notes_key(&registering)
 }

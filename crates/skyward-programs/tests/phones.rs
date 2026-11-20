@@ -69,6 +69,8 @@ fn program(path: &str, libraries: &[&str], user: &str, groups: &[&str]) -> Servi
         path: path.into(),
         args: Vec::new(),
         libraries: strings(libraries),
+        alternates: Vec::new(),
+        optional: false,
         preload: Vec::new(),
         oneshot: false,
         ready_property: None,

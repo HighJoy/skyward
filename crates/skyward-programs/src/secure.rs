@@ -392,6 +392,8 @@ fn started(phone: &Phone, program: &Program, ready: Ready, registers: Vec<String
         path: phone.started_from(&program.path),
         args: program.args.clone(),
         libraries: libraries_of(&program.path, phone.bundle.as_deref()),
+        alternates: Vec::new(),
+        optional: false,
         preload: Vec::new(),
         oneshot: false,
         ready_property,

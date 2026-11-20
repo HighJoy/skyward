@@ -2476,6 +2476,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "skyward-hal-shim"
+version = "0.3.1"
+
+[[package]]
 name = "skyward-info"
 version = "0.3.1"
 dependencies = [

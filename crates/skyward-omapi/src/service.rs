@@ -267,6 +267,24 @@ struct Service {
     terminals: Vec<Arc<Terminal>>,
 }
 
+impl Service {
+    /// The reader a program asks for by `name`. A reader is named after
+    /// the secure element's instance, which Android's own service does
+    /// too: eSE1, SIM1. Programs of the phone's written for other builds
+    /// ask for the same reader without the number its maker gave it — the
+    /// weaver of one build asks for `eSE` where the element is `eSE1` —
+    /// and such a name is taken for the reader it names where no reader is
+    /// named exactly so. What is listed stays as the elements are named.
+    fn reader(&self, name: &str) -> Option<&Arc<Terminal>> {
+        let exactly = self.terminals.iter().find(|t| t.name == name);
+        exactly.or_else(|| {
+            self.terminals.iter().find(|t| {
+                t.name.strip_prefix(name).is_some_and(|rest| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit()))
+            })
+        })
+    }
+}
+
 impl Object<Binder> for Service {
     fn interface(&self) -> &'static str {
         SERVICE
@@ -293,7 +311,7 @@ impl Object<Binder> for Service {
             }
             GET_READER => {
                 let name = read.string().map_err(|e| Refusal::illegal_argument(format!("{e:#}")))?;
-                let terminal = self.terminals.iter().find(|t| t.name == name).ok_or_else(|| Refusal::illegal_argument(format!("Reader: {name} not supported")))?;
+                let terminal = self.reader(&name).ok_or_else(|| Refusal::illegal_argument(format!("Reader: {name} not supported")))?;
                 hands(Some(terminal.objects.lend(Arc::new(Read { terminal: terminal.clone() }))))
             }
             // Which apps may hear of what the secure element does over NFC

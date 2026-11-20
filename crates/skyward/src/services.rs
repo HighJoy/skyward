@@ -61,7 +61,8 @@ const PRELOAD: &str = "LD_PRELOAD";
 pub fn start(programs: &[Started], libraries: Option<&Path>) -> Result<()> {
     let known = accounts();
     for program in programs {
-        let (s, who, given) = readied(program, libraries, &known)?;
+        let Some(program) = placed(program)? else { continue };
+        let (s, who, given) = readied(&program, libraries, &known)?;
         if s.oneshot {
             let status = to_its_end(&s, &who, &given)?;
             ensure!(status.success(), "{} {} ended: {status}", s.path, s.args.join(" "));
@@ -104,6 +105,37 @@ fn accounts() -> HashMap<String, u32> {
 /// What `program` is started with, worked out before it is: the program
 /// itself, which has to be there, with `libraries` after its own, who it
 /// runs as and what init hands it.
+/// `program` where it actually is, among the places it may be: a maker
+/// keeps one of its programs under other names, or on another partition,
+/// from one build to the next, and nothing tells which by the version of
+/// Android. None where it is at none of them and the configuration says
+/// the phone may not have it at all.
+fn placed(program: &Started) -> Result<Option<Started>> {
+    let s = &program.service;
+    if Path::new(&s.path).is_file() {
+        return Ok(Some(program.clone()));
+    }
+    for path in &s.alternates {
+        if Path::new(path).is_file() {
+            let mut placed = program.clone();
+            placed.service.path = path.clone();
+            return Ok(Some(placed));
+        }
+    }
+    match s.optional {
+        true => {
+            skyward_sys::kmsg(&format!("{} is at none of {}; left out", s.path, places(s)))?;
+            Ok(None)
+        }
+        false => bail!("{} is at none of {}; is its partition mounted?", s.path, places(s)),
+    }
+}
+
+/// Where a program may be, as one line of them.
+fn places(s: &Service) -> String {
+    s.paths().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", ")
+}
+
 fn readied(program: &Started, libraries: Option<&Path>, known: &HashMap<String, u32>) -> Result<(Service, Credentials, Given)> {
     let mut s = program.service.clone();
     if !Path::new(&s.path).is_file() {

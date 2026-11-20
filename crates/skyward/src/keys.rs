@@ -89,6 +89,92 @@ pub fn programs(steps: &[Step]) -> Vec<Service> {
     secure::programs(steps).into_iter().map(|started| started.service.clone()).collect()
 }
 
+/// The steps with what the configuration says of them: a program the
+/// configuration names that the phone's partitions also name is the same
+/// program, and takes what the configuration gives it that the partitions
+/// cannot say — a library to load before the phone's own build of one asks
+/// for an entry point the recovery's copy has not. A program of the
+/// configuration's own that the partitions do not name is added after
+/// them, and one taken over is not started a second time.
+///
+/// Nothing is taken from the partitions: what they say of the order, of
+/// what each program registers, of the user and the groups it runs in, is
+/// what a recovery follows, as it would on the phone itself.
+pub fn with_config(steps: &[Step], extra: &mut Vec<Service>) -> Vec<Step> {
+    let mut out: Vec<Step> = steps.to_vec();
+    let mut alone: Vec<Service> = Vec::new();
+    for service in extra.drain(..) {
+        match out.iter_mut().find_map(|step| match step {
+            Step::Start(started) if same(&started.service, &service) => Some(started),
+            _ => None,
+        }) {
+            Some(started) => merge(&mut started.service, service),
+            None => alone.push(service),
+        }
+    }
+    for service in alone {
+        out.push(Step::Start(Box::new(service.into())));
+    }
+    out
+}
+
+/// Whether the configuration's program is the one among `steps`: which of
+/// the services it is ready with says so, where both name one, and its
+/// path otherwise — any of them, as a phone may keep it under more than
+/// one name.
+fn same(step: &Service, named: &Service) -> bool {
+    if let (Some(step), Some(named)) = (&step.ready_service, &named.ready_service) {
+        return step == named;
+    }
+    named.paths().any(|path| path == step.path)
+}
+
+/// Give `into` what `from` says that it does not: what the partitions
+/// cannot know of this phone's build of the program.
+fn merge(into: &mut Service, from: Service) {
+    if !from.alternates.is_empty() {
+        into.alternates = from.alternates;
+    }
+    if !from.args.is_empty() {
+        into.args = from.args;
+    }
+    if !from.libraries.is_empty() {
+        into.libraries = from.libraries;
+    }
+    if !from.preload.is_empty() {
+        let mut preload = from.preload;
+        preload.append(&mut into.preload);
+        into.preload = preload;
+    }
+    into.oneshot |= from.oneshot;
+    if from.ready_property.is_some() {
+        into.ready_property = from.ready_property;
+    }
+    if from.ready_service.is_some() {
+        into.ready_service = from.ready_service;
+    }
+    if from.ready_hardware_service.is_some() {
+        into.ready_hardware_service = from.ready_hardware_service;
+    }
+    for name in from.registers {
+        if !into.registers.contains(&name) {
+            into.registers.push(name);
+        }
+    }
+    if from.when.is_some() {
+        into.when = from.when;
+    }
+    if from.user.is_some() {
+        into.user = from.user;
+    }
+    if !from.groups.is_empty() {
+        into.groups = from.groups;
+    }
+    if !from.capabilities.is_empty() {
+        into.capabilities = from.capabilities;
+    }
+}
+
 /// Whether the recovery serves the secure element service among `steps`.
 pub fn serves_elements(steps: &[Step]) -> bool {
     steps.contains(&Step::ServeElements)
@@ -159,4 +245,81 @@ pub fn describe(steps: &[Step]) -> Vec<String> {
         lines.push(line);
     }
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn service(path: &str) -> Service {
+        Service {
+            path: path.into(),
+            alternates: Vec::new(),
+            optional: false,
+            args: Vec::new(),
+            libraries: Vec::new(),
+            preload: Vec::new(),
+            oneshot: false,
+            ready_property: None,
+            ready_service: None,
+            registers: Vec::new(),
+            ready_hardware_service: None,
+            when: None,
+            user: None,
+            groups: Vec::new(),
+            capabilities: Vec::new(),
+        }
+    }
+
+    fn step(service: Service) -> Step {
+        Step::Start(Box::new(service.into()))
+    }
+
+    fn paths(steps: &[Step]) -> Vec<String> {
+        secure::programs(steps).iter().map(|p| p.service.path.clone()).collect()
+    }
+
+    /// A program the partitions name, as they name it.
+    fn derived() -> Vec<Step> {
+        let mut element = service("/vendor/bin/hw/android.hardware.secure_element-service.qti");
+        element.ready_service = Some("android.hardware.secure_element.ISecureElement/eSE1".into());
+        element.registers = vec!["android.hardware.secure_element.ISecureElement/SIM1".into()];
+        element.user = Some("system".into());
+        vec![step(service("/vendor/bin/qseecomd")), step(element)]
+    }
+
+    #[test]
+    fn a_named_program_takes_the_place_of_the_one_the_partitions_name() {
+        let mut named = service("/odm/bin/hw/android.hardware.secure_element-service.qti");
+        named.alternates = vec!["/vendor/bin/hw/android.hardware.secure_element-service.qti".into()];
+        named.ready_service = Some("android.hardware.secure_element.ISecureElement/eSE1".into());
+        named.preload = vec!["/skyward/lib/libskyward_hal_shim.so".into()];
+        let mut extra = vec![named];
+
+        let steps = with_config(&derived(), &mut extra);
+        assert_eq!(paths(&steps), ["/vendor/bin/qseecomd", "/vendor/bin/hw/android.hardware.secure_element-service.qti"], "the place the partitions give it");
+        let started = secure::programs(&steps)[1];
+        assert_eq!(started.service.preload, ["/skyward/lib/libskyward_hal_shim.so"], "what only the configuration knows");
+        assert_eq!(started.service.registers, ["android.hardware.secure_element.ISecureElement/SIM1"], "what the phone says it registers");
+        assert_eq!(started.service.user.as_deref(), Some("system"), "the user its own init runs it as");
+        assert!(extra.is_empty(), "a program taken over is not started a second time");
+    }
+
+    #[test]
+    fn a_program_the_partitions_do_not_name_comes_after_them() {
+        let mut extra = vec![service("/vendor/bin/sh")];
+        let steps = with_config(&derived(), &mut extra);
+        assert_eq!(
+            paths(&steps),
+            ["/vendor/bin/qseecomd", "/vendor/bin/hw/android.hardware.secure_element-service.qti", "/vendor/bin/sh"],
+            "the programs of the partitions first, in their order, and the configuration's own after them"
+        );
+        assert!(extra.is_empty());
+    }
+
+    #[test]
+    fn what_the_configuration_does_not_name_is_left_as_the_partitions_have_it() {
+        let mut extra = Vec::new();
+        assert_eq!(with_config(&derived(), &mut extra), derived());
+    }
 }

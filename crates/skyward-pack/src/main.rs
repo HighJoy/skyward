@@ -68,6 +68,12 @@ enum Cmd {
         /// The monospaced typeface's licence, which goes with it.
         #[arg(long)]
         mono_license: PathBuf,
+        /// A folder whose files go into the ramdisk where they lie in it:
+        /// what the configuration names that this tree builds apart from
+        /// the recovery, as a library a program of the phone's loads before
+        /// its own.
+        #[arg(long)]
+        extra: Vec<PathBuf>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -125,7 +131,7 @@ fn main() -> Result<()> {
             img.kernel = BootImage::read(&kernel)?.kernel;
             write(&out, &img, &img.to_bytes()?)
         }
-        Cmd::Recovery { stock, binary, system_init, config, font, mono, mono_license, out } => {
+        Cmd::Recovery { stock, binary, system_init, config, font, mono, mono_license, extra, out } => {
             let size = partition_size(&stock)?;
             let mut img = BootImage::read(&stock)?;
             let mut rd = Ramdisk::decode(&img.ramdisk)?;
@@ -135,7 +141,7 @@ fn main() -> Result<()> {
                 anyhow::bail!("{} holds {}, which is not a stock recovery", stock.display(), e.name);
             }
             let read = |p: &PathBuf| std::fs::read(p).with_context(|| format!("read {}", p.display()));
-            skyward_config::DeviceConfig::load(&config)?;
+            let device = skyward_config::DeviceConfig::load(&config)?;
             rd.replace(paths::RECOVERY, read(&binary)?)?;
             // Install scripts look for the commands a stock recovery lacks
             // among its programs, and its unzip there too, a link to ziptool
@@ -155,6 +161,10 @@ fn main() -> Result<()> {
                 rd.add(paths::TASK_PROFILES, 0o644, TASK_PROFILES.to_vec())?;
             }
             rd.add(paths::MTP_RC, 0o644, MTP_RC.to_vec())?;
+            for root in &extra {
+                add_tree(&mut rd, root)?;
+            }
+            check_own_files(&rd, &device)?;
             // On an unlocked device adbd keeps root when ro.secure is 0 and
             // lets any computer in without authorization when ro.adb.secure is
             // 0; init lets a later line of a property file override an earlier
@@ -187,6 +197,61 @@ fn main() -> Result<()> {
         }
     }
 }
+
+/// Add every file under `root` to `rd`, under the path it lies at in
+/// `root`: data keeps the mode a file of its kind is read with, and a
+/// program is made to run.
+fn add_tree(rd: &mut Ramdisk, root: &Path) -> Result<()> {
+    let mut files = Vec::new();
+    under(root, &mut files)?;
+    files.sort();
+    for path in files {
+        let name = path
+            .strip_prefix(root)
+            .expect("a path under the folder it was found in")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let mode = match path.extension().and_then(|e| e.to_str()) {
+            Some("so" | "xml" | "json" | "txt" | "conf" | "bin" | "ini") => 0o644,
+            _ => 0o755,
+        };
+        let data = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+        rd.add(&name, mode, data)?;
+    }
+    Ok(())
+}
+
+/// Every file under `dir`, folders descended into.
+fn under(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in std::fs::read_dir(dir).with_context(|| format!("read {}", dir.display()))? {
+        let entry = entry.with_context(|| format!("read {}", dir.display()))?;
+        let path = entry.path();
+        match entry.file_type().with_context(|| format!("look at {}", path.display()))?.is_dir() {
+            true => under(&path, out)?,
+            false => out.push(path),
+        }
+    }
+    Ok(())
+}
+
+/// Refuse to make an image whose configuration names a file of the
+/// recovery's own that the ramdisk does not hold: a program told to load
+/// one before its own libraries does not start without it, and nothing
+/// says so until the phone is flashed and the page it serves stays empty.
+fn check_own_files(rd: &Ramdisk, device: &skyward_config::DeviceConfig) -> Result<()> {
+    for service in &device.services {
+        for file in &service.preload {
+            let Some(name) = file.strip_prefix('/') else { continue };
+            if name.starts_with(OWN) && rd.find(name).is_none() {
+                anyhow::bail!("{} is to be loaded before {} starts, and the ramdisk holds no such file", file, service.path);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Where the recovery keeps what it brings itself.
+const OWN: &str = "skyward/";
 
 /// The partition a recovery is made on, as a full update package names it.
 const RECOVERY: &str = "recovery";

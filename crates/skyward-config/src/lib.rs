@@ -343,6 +343,18 @@ pub struct Partitions {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Service {
     pub path: String,
+    /// Where else the program may be. A maker keeps one HAL under other
+    /// names and on other partitions across the builds a recovery serves,
+    /// and nothing tells which by the version of Android: the first of
+    /// these that is there is started, and `path` before them all.
+    #[serde(default)]
+    pub alternates: Vec<String>,
+    /// A program the phone may not have at all. Where none of its paths is
+    /// there, it is left out and said so, rather than the programs after
+    /// it given up: one page of what the recovery does is not worth the
+    /// rest of what it does.
+    #[serde(default)]
+    pub optional: bool,
     /// What the program is given after its own path, as init gives a
     /// service the words after its path.
     #[serde(default)]
@@ -460,10 +472,15 @@ pub struct Property {
 }
 
 impl Service {
+    /// Where the program may be, `path` first and then those beside it.
+    pub fn paths(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.path.as_str()).chain(self.alternates.iter().map(String::as_str))
+    }
+
     /// Whether the program, or a directory it loads libraries from, is
     /// under `dir`: without what is mounted there it cannot start again.
     pub fn uses(&self, dir: &Path) -> bool {
-        Path::new(&self.path).starts_with(dir) || self.libraries.iter().any(|l| Path::new(l).starts_with(dir))
+        self.paths().any(|p| Path::new(p).starts_with(dir)) || self.libraries.iter().any(|l| Path::new(l).starts_with(dir))
     }
 
     /// Whether the program is this phone's to run, by the installed

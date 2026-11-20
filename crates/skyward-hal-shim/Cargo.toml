@@ -1,0 +1,9 @@
+[package]
+name = "skyward-hal-shim"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The entry points a phone's own hardware programs ask for that a recovery's libraries do not carry"
+
+[lib]
+crate-type = ["cdylib"]

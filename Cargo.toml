@@ -24,6 +24,7 @@ members = [
     "crates/skyward-bootimg",
     "crates/skyward-systems",
     "crates/skyward-system-init",
+    "crates/skyward-hal-shim",
 ]
 
 [workspace.package]
@@ -50,3 +51,8 @@ strip = true
 # The UI draws every pixel of every frame; it is built for speed.
 [profile.release.package.skyward-ui]
 opt-level = 3
+
+# The shim is a handful of entry points and nothing else: what the
+# standard library would bring with it is stripped away at link time.
+[profile.release.package.skyward-hal-shim]
+strip = "symbols"
