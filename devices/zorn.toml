@@ -59,6 +59,23 @@ partition = "modem"
 [partitions]
 mounted = ["persist"]
 
+# The secure element the data partition's key is kept in is served by the
+# phone's own program for it, which its init runs as nfc's. That program is
+# built against a newer Android than a recovery carries, and asks its binder
+# library for an entry point added since: without it the program ends before
+# its first line, again a second later, and registers nothing at all, which
+# is what left the key service with no element to reach. What the recovery
+# brings is that one entry point and nothing else. The listeners, the key
+# service, the credential service, the element's own service, the weaver
+# that reads the slot, and the order they come in are read from the phone's
+# partitions, as the phone's init reads them, and serving Android's secure
+# element service between them is the recovery's own work.
+[[service]]
+path = "/vendor/bin/hw/android.hardware.secure_element-service.qti"
+alternates = ["/odm/bin/hw/android.hardware.secure_element-service.qti"]
+ready_service = "android.hardware.secure_element.ISecureElement/eSE1"
+preload = ["/skyward/lib/libskyward_hal_shim.so"]
+
 # What the phone's own init runs once the system has finished starting, as
 # kernel-post-boot in /vendor/etc/init/hw/init.qti.kernel.rc. The kernel
 # starts the CPU clusters on the performance governor, which holds them at
@@ -66,68 +83,6 @@ mounted = ["persist"]
 # down and sets how the memory bus scales. Without it the CPUs stay at
 # their highest clock and voltage even while idle, and the phone slowly
 # heats up.
-# The keys and the element the data partition's key is kept in, as a
-# recovery that opens this phone's data partition runs them: the phone's
-# own secure-world daemon, the key service, the gatekeeper, the element's
-# service, the element service itself and the weaver that reads the slot
-# through it. The last three are the phone's own programs, and the element
-# service needs a compatibility layer of the recovery's before it: without
-# it the service registers no element at all.
-[[service]]
-path = "/vendor/bin/qseecomd"
-libraries = ["/system/lib64", "/vendor/lib64"]
-ready_property = "vendor.sys.listeners.registered"
-user = "root"
-groups = ["root", "drmrpc"]
-
-[[service]]
-path = "/vendor/bin/hw/android.hardware.security.keymint-service-qti"
-libraries = ["/system/lib64", "/vendor/lib64", "/apex/com.android.vndk.v34/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
-ready_service = "android.hardware.security.keymint.IKeyMintDevice/default"
-registers = [
-    "android.hardware.security.keymint.IRemotelyProvisionedComponent/default",
-    "android.hardware.security.secureclock.ISecureClock/default",
-    "android.hardware.security.sharedsecret.ISharedSecret/default",
-]
-user = "system"
-groups = ["system", "drmrpc"]
-
-[[service]]
-path = "/vendor/bin/hw/android.hardware.gatekeeper-service-qti"
-libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/apex/com.android.vndk.v34/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
-ready_service = "android.hardware.gatekeeper.IGatekeeper/default"
-user = "system"
-groups = ["system"]
-
-[[service]]
-path = "/vendor/bin/hw/android.hardware.secure_element-service.qti"
-libraries = ["/system/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/skyward/omapi/lib64", "/apex/com.android.vndk.v34/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
-preload = ["/skyward/omapi/lib64/libskyward_omapi_compat.so"]
-ready_service = "android.hardware.secure_element.ISecureElement/eSE1"
-registers = [
-    "android.hardware.secure_element.ISecureElement/SIM1",
-    "android.hardware.secure_element.ISecureElement/SIM2",
-]
-user = "system"
-groups = ["nfc", "system"]
-
-[[service]]
-path = "/skyward/omapi/se_omapi"
-libraries = ["/system/lib64", "/skyward/omapi/lib64", "/apex/com.android.vndk.v34/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
-preload = ["/mnt/system/system/lib64/libc++.so", "/skyward/omapi/lib64/libskyward_omapi_compat.so"]
-ready_service = "android.se.omapi.ISecureElementService/default"
-user = "root"
-groups = ["root"]
-
-[[service]]
-path = "/skyward/nxp/weaver"
-libraries = ["/system/lib64", "/skyward/nxp/lib64", "/skyward/omapi/lib64", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/apex/com.android.vndk.v34/lib64", "/mnt/system/system/lib64", "/mnt/system/system/lib64/bootstrap"]
-preload = ["/mnt/system/system/lib64/libc++.so", "/skyward/omapi/lib64/libskyward_omapi_compat.so"]
-ready_service = "android.hardware.weaver.IWeaver/default"
-user = "root"
-groups = ["root", "drmrpc"]
-
-# What the phone's own init runs once the system has finished starting.
 [[service]]
 path = "/vendor/bin/sh"
 args = ["/vendor/bin/init.kernel.post_boot.sh"]

@@ -120,17 +120,31 @@ Skyward 的镜像就是**在这个原厂 recovery 上改的**：原厂的 init�
 
 ## 解密
 
-`/data` 的密钥在 weaver 的槽位里，weaver 经 OMAPI 读它，而 recovery 里没有 framework 去提供 OMAPI。这一版带上了三件从手机自带 TWRP 里取来的东西，都放在 `ports/zorn/ramdisk/`，打包时用 `--extra` 放进 ramdisk：
+`/data` 的密钥在 weaver 的槽位里（`/metadata/vold/metadata_encryption/*.weaver`），`skyward-crypto` 读它要经过两道自己不带的东西：一道是 weaver HAL，另一道是它读安全元件所经的 OMAPI 服务。这一版把这两道都落回手机自带的东西上，**只用手机自己的文件**：
 
-| 文件 | 作用 |
+| 环节 | 谁来做 |
 | --- | --- |
-| `skyward/omapi/lib64/libskyward_omapi_compat.so` | 兼容层。没有它，高通的 `secure_element-service.qti` 每秒退出一次，一个元件也不注册 |
-| `skyward/omapi/se_omapi` | recovery 自己的 OMAPI 服务，为每个已注册的安全元件建一个 reader |
-| `skyward/nxp/weaver` + `lib64/ese_weaver.so` | NXP 的 weaver v2，经 OMAPI 读槽位；`/skyward/nxp/lib64` 里还有它要的 AIDL v2 桩与 keymint transport |
+| 监听者、密钥服务、凭据服务、元件服务、weaver、boot control，以及它们的顺序 | 从手机分区自己的 `init.rc` 与 vintf 推导（`skyward-programs::secure`），配置不点名 |
+| Android 的元件服务（`ISecureElementService`） | recovery 自己的 `skyward-omapi`，按已注册的元件建 reader |
+| 元件服务本身（`secure_element-service.qti`）、weaver（`weaver-service.nxp-qti`） | 手机自带的二进制 |
 
-链路是：`secure_element-service.qti`（先加载兼容层）注册 `ISecureElement/eSE1` → `se_omapi` 为它建 reader → `weaver` 读槽位。实测日志 `weaver: Read slot 0 OK`，锁屏密码能解开 `/data`。
+唯一补的是一件 entry point：高通的元件服务按比 recovery 新的 `libbinder_ndk` 编译，启动时要 `AIBinder_Class_setTransactionCodeToFunctionNameMap`，recovery 的库里没有这个符号，程序在第一条指令前就退出，一秒一次。`crates/skyward-hal-shim` 就是这一个符号（`cdylib`，几十字节的价值，不依赖任何第三方），由配置的 `preload` 在它自己的库之前加载：
 
-`[service]` 里点名了这三个程序之后，Skyward 不再从分区自己推导密钥步骤（`the keys are used by the programs the configuration names`），否则它会再起一个手机自带的 weaver，两个抢服务目录里同一个位置。
+```toml
+[[service]]
+path = "/vendor/bin/hw/android.hardware.secure_element-service.qti"
+alternates = ["/odm/bin/hw/android.hardware.secure_element-service.qti"]
+ready_service = "android.hardware.secure_element.ISecureElement/eSE1"
+preload = ["/skyward/lib/libskyward_hal_shim.so"]
+```
+
+这条 `[[service]]` 不新增步骤，而是**接管**推导出来的那一步：同 `ready_service`（或同名路径）即同一个程序，配置只补上它知道而分区不知道的东西（要先加载的库、备用路径），顺序、`registers`、`user`、`groups` 仍按手机自己的 init 走。分区没提到、配置里有的程序，追加在推导出来的步骤之后。
+
+链路：`secure_element-service.qti`（先加载 shim 与系统 libc++）注册 `ISecureElement/eSE1` → `skyward-omapi` 为它建 reader → 手机自带的 `weaver-service.nxp-qti` 经 OMAPI 读槽位 → `skyward-crypto` 解 `/data`。
+
+reader 名有一处兼容：Android 自己的服务按元件实例命名（`eSE1`），有些为别的 build 写的程序按 `eSE` 找；`openReader` 在精确匹配失败时接受「名字 + 数字后缀」的别名，`getReaders()` 仍只列规范名。
+
+真机实测：`weaver: Read slot 0 OK`，锁屏密码可解开 `/data`。
 
 ## 验证
 
@@ -146,6 +160,10 @@ cargo ndk -t arm64-v8a --platform 30 build --release -p skyward
 RUSTFLAGS="-C target-feature=+crt-static" cargo ndk -t arm64-v8a --platform 30 build --release \
   -p skyward-system-init --target-dir target/system-init
 cargo build --release -p skyward-pack
+# 只有一件要放进 ramdisk 的自家文件：那个 entry point
+cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-hal-shim
+mkdir -p target/ramdisk/skyward/lib
+cp target/aarch64-linux-android/release/libskyward_hal_shim.so target/ramdisk/skyward/lib/
 
 target/release/skyward-pack stock --config devices/zorn.toml --out target/stock/recovery.img
 target/release/skyward-pack recovery \
@@ -156,7 +174,7 @@ target/release/skyward-pack recovery \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
-  --extra ports/zorn/ramdisk \
+  --extra target/ramdisk \
   --out target/skyward-zorn.img
 ```
 
