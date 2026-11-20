@@ -15,17 +15,9 @@
 //! what is here is not changed by it, and one that does is started where it
 //! would otherwise not be.
 
-#![no_std]
 #![allow(non_snake_case)]
 
 use core::ffi::c_void;
-
-/// Nothing here allocates, formats or unwinds: the entry points below hand
-/// what they are given back, and a panic in them cannot happen.
-#[panic_handler]
-fn panicked(_: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
 
 /// Give the transaction codes of a binder class the names they are logged
 /// under. The recovery has no use for the names, and the codes work the
